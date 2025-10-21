@@ -1,0 +1,36 @@
+# Node.js
+node_modules/
+.env
+.env.*local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.pnpm-store/
+dist/
+build/
+
+# React
+.cache/
+public/build/
+public/static/
+public/index.html # If dynamically generated or built
+
+# Prisma
+prisma/migrations/
+prisma/seed.js # If you have a seed file you don't want to track
+.env # Again, explicitly for Prisma if it's separate from the main .env
+generated/
+!prisma/schema.prisma # Ensure schema.prisma is tracked
+
+# Operating System Files
+.DS_Store
+Thumbs.db
+
+# VS Code
+.vscode/
+
+.idea/
+
+seed.js
