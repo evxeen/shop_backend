@@ -11,20 +11,31 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
-// В секции middleware
 app.use(cors({
     origin: [
         'http://localhost:3000',
-        'https://your-frontend-domain.vercel.app' // замени на твой домен Vercel
+        'https://shop-frontend-self.vercel.app', // твой фронтенд на Vercel
+        'https://*.vercel.app' // все поддомены Vercel
     ],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true
 }));
+// В секции middleware
+// app.use(cors({
+//     origin: [
+//         'http://localhost:3000',
+//         'https://your-frontend-domain.vercel.app' // замени на твой домен Vercel
+//     ],
+//     credentials: true
+// }));
+//
+// // Или разреши все домены для тестирования:
+// app.use(cors({
+//     origin: "*", // временно для теста
+//     credentials: true
+// }));
 
-// Или разреши все домены для тестирования:
-app.use(cors({
-    origin: "*", // временно для теста
-    credentials: true
-}));
 app.use(express.json());
 
 // Routes

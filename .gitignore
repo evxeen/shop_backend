@@ -33,3 +33,5 @@ Thumbs.db
 
 .idea/
 
+seed-remote.js
+seed.js
