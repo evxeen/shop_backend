@@ -1,3 +1,4 @@
+// controllers/orderController.js
 const prisma = require('../db/client');
 
 // Создать новый заказ
@@ -5,8 +6,15 @@ const createOrder = async (req, res) => {
     try {
         const { customerName, customerPhone, customerEmail, address, items } = req.body;
 
+        // 🔥 ОБНОВЛЕНИЕ: Используем данные пользователя если он авторизован
+        const userId = req.user?.id;
+
+        const finalCustomerName = userId ? req.user.name || customerName : customerName;
+        const finalCustomerPhone = userId ? req.user.phone || customerPhone : customerPhone;
+        const finalCustomerEmail = userId ? req.user.email || customerEmail : customerEmail;
+
         // Базовая валидация
-        if (!customerName || !customerPhone || !address || !items || items.length === 0) {
+        if (!finalCustomerName || !finalCustomerPhone || !address || !items || items.length === 0) {
             return res.status(400).json({
                 error: 'Missing required fields: customerName, customerPhone, address, items'
             });
@@ -47,11 +55,12 @@ const createOrder = async (req, res) => {
             // 1. Создаем заказ
             const order = await tx.order.create({
                 data: {
-                    customerName,
-                    customerPhone,
-                    customerEmail,
+                    customerName: finalCustomerName,
+                    customerPhone: finalCustomerPhone,
+                    customerEmail: finalCustomerEmail,
                     address,
                     totalPrice,
+                    userId: userId || null, // 🔥 Привязываем к пользователю если есть
                     items: {
                         create: orderItems
                     }
@@ -65,6 +74,8 @@ const createOrder = async (req, res) => {
                 }
             });
 
+
+
             // 2. Обновляем остатки товаров
             for (const item of items) {
                 await tx.product.update({
@@ -75,6 +86,34 @@ const createOrder = async (req, res) => {
                         }
                     }
                 });
+            }
+
+            // 🔥 НАЧИСЛЯЕМ БОНУСЫ 5% ПОСЛЕ СОЗДАНИЯ ЗАКАЗА
+            if (userId) {
+                const loyaltyBonus = totalPrice * 0.05; // 5% от суммы заказа
+
+                // Обновляем баланс пользователя
+                await tx.user.update({
+                    where: { id: userId },
+                    data: {
+                        bonusBalance: { increment: loyaltyBonus },
+                        totalSpent: { increment: totalPrice },
+                        ordersCount: { increment: 1 }
+                    }
+                });
+
+                // Записываем в историю бонусов
+                await tx.bonusTransaction.create({
+                    data: {
+                        userId: userId,
+                        amount: loyaltyBonus,
+                        type: 'loyalty_5percent',
+                        orderId: order.id,
+                        description: `Начислено 5% бонусов с заказа #${order.id}`
+                    }
+                });
+
+                console.log(`Начислено ${loyaltyBonus} бонусов пользователю ${userId}`);
             }
 
             return order;
@@ -100,6 +139,12 @@ const getAllOrders = async (req, res) => {
                     include: {
                         product: true
                     }
+                },
+                user: {
+                    select: {
+                        email: true,
+                        phone: true
+                    }
                 }
             },
             orderBy: {
@@ -110,6 +155,34 @@ const getAllOrders = async (req, res) => {
         res.json(orders);
     } catch (error) {
         console.error('Error fetching orders:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+// 🔥 НОВЫЙ МЕТОД: Получить заказы текущего пользователя
+const getUserOrders = async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        const orders = await prisma.order.findMany({
+            where: {
+                userId: userId
+            },
+            include: {
+                items: {
+                    include: {
+                        product: true
+                    }
+                }
+            },
+            orderBy: {
+                createdAt: 'desc'
+            }
+        });
+
+        res.json(orders);
+    } catch (error) {
+        console.error('Error fetching user orders:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 };
@@ -141,6 +214,13 @@ const updateOrderStatus = async (req, res) => {
             }
         });
 
+        if (status === 'delivered') {
+            const ReferralService = require('../services/referralService');
+
+            // Начисляем реферальный бонус если заказ выполнен
+            await ReferralService.awardReferralBonus(order.userId);
+        }
+
         res.json({
             message: 'Order status updated successfully',
             order
@@ -157,5 +237,6 @@ const updateOrderStatus = async (req, res) => {
 module.exports = {
     createOrder,
     getAllOrders,
+    getUserOrders, // 🔥 Экспортируем новый метод
     updateOrderStatus
 };

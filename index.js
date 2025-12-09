@@ -1,52 +1,39 @@
-// index.js
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 
 const productRoutes = require('./routes/productRoutes');
 const orderRoutes = require('./routes/orderRoutes');
+const authRoutes = require('./routes/authRoutes');
+const adminRoutes = require('./routes/adminRoutes');
+
 const errorHandler = require('./middleware/errorHandler');
+
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
-app.use(cors({
-    origin: [
-        'http://localhost:3000',
-        'https://shop-frontend-self.vercel.app', // твой фронтенд на Vercel
-        'https://*.vercel.app' // все поддомены Vercel
-    ],
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: true
-}));
-// В секции middleware
-// app.use(cors({
-//     origin: [
-//         'http://localhost:3000',
-//         'https://your-frontend-domain.vercel.app' // замени на твой домен Vercel
-//     ],
-//     credentials: true
-// }));
-//
-// // Или разреши все домены для тестирования:
-// app.use(cors({
-//     origin: "*", // временно для теста
-//     credentials: true
-// }));
-
+app.use(cors());
 app.use(express.json());
 
 // Routes
 app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);
+app.use('/api/auth', authRoutes); // ← И ЭТОЙ ТОЖЕ!
+app.use('/api/admin', adminRoutes);
+
 
 // Test route
 app.get('/', (req, res) => {
     res.json({
         message: 'Vape Shop API is running!',
         endpoints: {
+            auth: {
+                register: 'POST /api/auth/register',
+                login: 'POST /api/auth/login',
+                me: 'GET /api/auth/me'
+            },
             products: {
                 getAll: 'GET /api/products',
                 getById: 'GET /api/products/:id'
@@ -56,11 +43,11 @@ app.get('/', (req, res) => {
                 getAll: 'GET /api/orders',
                 updateStatus: 'PATCH /api/orders/:id/status'
             }
-        },
-        timestamp: new Date().toISOString()
+        }
     });
 });
 
+// ... остальной код
 // Health check
 app.get('/health', (req, res) => {
     res.json({

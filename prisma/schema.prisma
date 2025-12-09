@@ -7,6 +7,66 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id            Int                 @id @default(autoincrement())
+  telegramId    String              @unique
+  username      String?
+  phone         String?
+  email         String?             @unique
+  passwordHash  String?
+  telegramData  Json?
+  role          UserRole            @default(USER)
+
+  // Система бонусов
+  bonusBalance  Float               @default(0)
+  totalSpent    Float               @default(0)
+  ordersCount   Int                 @default(0)
+
+  referralCode  String?             @unique
+  referrerId    Int?
+  referrer      User?               @relation("Referrals", fields: [referrerId], references: [id])
+  referrals     User[]              @relation("Referrals")
+
+  // Сохраненные адреса
+  savedAddresses Json?
+
+  // 🔥 ДОБАВЛЯЕМ ОБРАТНЫЕ СВЯЗИ
+  orders        Order[]
+  bonusTransactions BonusTransaction[] // Обратная связь к BonusTransaction
+
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+}
+
+model Order {
+  id            Int                 @id @default(autoincrement())
+  customerName  String
+  customerPhone String
+  customerEmail String?
+  address       String
+  status        String              @default("pending")
+  totalPrice    Float
+  createdAt     DateTime            @default(now())
+
+  // Связи
+  items         OrderItem[]
+  user          User?               @relation(fields: [userId], references: [id])
+  userId        Int?
+
+  // 🔥 ДОБАВЛЯЕМ ОБРАТНУЮ СВЯЗЬ
+  bonusTransactions BonusTransaction[] // Обратная связь к BonusTransaction
+}
+
+model OrderItem {
+  id        Int     @id @default(autoincrement())
+  orderId   Int
+  productId Int
+  quantity  Int
+  price     Float
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id])
+}
+
 model Product {
   id          Int         @id @default(autoincrement())
   name        String
@@ -20,24 +80,20 @@ model Product {
   orderItems  OrderItem[]
 }
 
-model Order {
-  id            Int         @id @default(autoincrement())
-  customerName  String
-  customerPhone String
-  customerEmail String?
-  address       String
-  status        String      @default("pending")
-  totalPrice    Float
-  items         OrderItem[]
-  createdAt     DateTime    @default(now())
+// 🔥 МОДЕЛЬ ДЛЯ ИСТОРИИ БОНУСОВ
+model BonusTransaction {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id])
+  amount      Float
+  type        String   // "loyalty_5percent", "referral_bonus", "birthday_bonus", "special_offer"
+  orderId     Int?
+  order       Order?   @relation(fields: [orderId], references: [id])
+  description String
+  createdAt   DateTime @default(now())
 }
 
-model OrderItem {
-  id        Int     @id @default(autoincrement())
-  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  orderId   Int
-  product   Product @relation(fields: [productId], references: [id])
-  productId Int
-  quantity  Int
-  price     Float
+enum UserRole {
+  USER
+  ADMIN
 }
